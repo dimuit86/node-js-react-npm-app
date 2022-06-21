@@ -1,30 +1,36 @@
-// Declarative //
 pipeline {
-    agent any
-    stages {
-
-        stage('Checkout') {
-            steps {
-            git credentialsId: 'Github_Auth', url: 'https://github.com/jenkins-docs/simple-node-js-react-npm-app.git', branch: 'main'
-            }
-        }
-        stage('Build') {
-            steps {
-                sh 'npm install'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh './jenkins/scripts/test.sh'
-            }
-        }
-        stage('Deliver') {
-            steps {
-                sh './jenkins/scripts/deliver.sh'
-                input message: 'Finished using the web site? (Click "Proceed" to continue)'
-                sh './jenkins/scripts/kill.sh'
-            }
-        }
-    }
+	environment {
+		registry = "dimuit86/simple-node-js-react-app"
+		registryCredential = 'dockerhub_id'
+		dockerImage = ''
+	}
+	agent any
+	stages {
+		stage('Cloning our Git') {
+			steps {
+				git 'https://github.com/dimuit86/node-js-react-npm-app.git'
+			}
+		}
+		stage('Building our image') {
+			steps {
+				script {
+					dockerImage = docker.build registry + ":$BUILD_NUMBER"
+				}
+			}
+		}
+		stage('Deploy our image') {
+			steps {
+				script {
+					docker.withRegistry('', registryCredential) {
+						dockerImage.push()
+					}
+				}
+			}
+		}
+		stage('Cleaning up') {
+			steps {
+				sh "docker rmi $registry:$BUILD_NUMBER"
+			}
+		}
+	}
 }
-// Script //
